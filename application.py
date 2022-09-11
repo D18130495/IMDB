@@ -41,11 +41,9 @@ def get_top250_movies_list():
                     'movie_id': movie_id,
                     'movie_name': movie_name,
                     'year': movie_year,
-                    'movie_link': movie_link,
-                    'movie_rate': float(movie_score)
+                    'movie_score': float(movie_score),
+                    'movie_link': movie_link
                 }
-
-                print(movie_id, movie_name, movie_year, movie_score, movie_link)
         else:
             print("Error when request URL")
     except RequestException:
@@ -55,28 +53,26 @@ def get_top250_movies_list():
 
 def store_movie_data_to_db(movie_data, conn, cursor):
     print(movie_data)
-    # sel_sql = "SELECT * FROM top_250_movies WHERE id = %d" % (movie_data['movie_id'])
-    #
-    # try:
-    #     cursor.execute(sel_sql)
-    #     result = cursor.fetchall()
-    # except:
-    #     print("Failed to fetch data")
-    #
-    # if result.__len__() == 0:
-    #     sql = "INSERT INTO top_250_movies \
-    #                 (id, name, year, rate) \
-    #              VALUES ('%d', '%s', '%d', '%f')" % \
-    #           (movie_data['movie_id'], movie_data['movie_name'], movie_data['year'], movie_data['movie_rate'])
-    #     try:
-    #         cursor.execute(sql)
-    #         conn.commit()
-    #         print("movie data ADDED to DB table top_250_movies!")
-    #     except:
-    #         # 发生错误时回滚
-    #         conn.rollback()
-    # else:
-    #     print("This movie ALREADY EXISTED!!!")
+    select_sql = "SELECT * FROM top250_movies WHERE id = %d" % (movie_data['movie_id'])
+
+    try:
+        cursor.execute(select_sql)
+        result = cursor.fetchall()
+    except:
+        print("Failed to fetch data")
+
+    if result.__len__() == 0:
+        insert_sql = "INSERT INTO top250_movies (id, name, year, score) VALUES ('%d', '%s', '%d', '%f')" % \
+              (movie_data['movie_id'], movie_data['movie_name'], movie_data['year'], movie_data['movie_score'])
+
+        try:
+            cursor.execute(insert_sql)
+            conn.commit()
+            print("movie data ADDED to DB table top250_movies!")
+        except:
+            conn.rollback()
+    else:
+        print("This movie ALREADY EXISTED!!!")
 
 
 def main():
