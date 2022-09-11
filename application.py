@@ -1,4 +1,5 @@
 import re
+
 import pymysql
 import requests
 from bs4 import BeautifulSoup
@@ -40,7 +41,7 @@ def get_top250_movies_list():
                 yield {
                     'movie_id': movie_id,
                     'movie_name': movie_name,
-                    'year': movie_year,
+                    'movie_year': movie_year,
                     'movie_score': float(movie_score),
                     'movie_link': movie_link
                 }
@@ -52,7 +53,6 @@ def get_top250_movies_list():
 
 
 def store_movie_data_to_db(movie_data, conn, cursor):
-    print(movie_data)
     select_sql = "SELECT * FROM top250_movies WHERE id = %d" % (movie_data['movie_id'])
 
     try:
@@ -62,8 +62,11 @@ def store_movie_data_to_db(movie_data, conn, cursor):
         print("Failed to fetch data")
 
     if result.__len__() == 0:
+        movie_name = movie_data['movie_name']
+
         insert_sql = "INSERT INTO top250_movies (id, name, year, score) VALUES ('%d', '%s', '%d', '%f')" % \
-              (movie_data['movie_id'], movie_data['movie_name'], movie_data['year'], movie_data['movie_score'])
+                     (movie_data['movie_id'], movie_data['movie_name'].replace("'", "‘"), movie_data['movie_year'],
+                      movie_data['movie_score'])
 
         try:
             cursor.execute(insert_sql)
@@ -75,11 +78,39 @@ def store_movie_data_to_db(movie_data, conn, cursor):
         print("This movie ALREADY EXISTED!!!")
 
 
+# def get_movie_detail_data(movie_data):
+#     url = movie_data['movie_link']
+#
+#     try:
+#         response = requests.get(url)
+#         if response.status_code == 200:
+#             soup = BeautifulSoup(response.text, 'lxml')
+#             # Parse Director's info
+#             director = soup.select_one('span[itemprop="director"]')
+#             person_link = director.select_one('a')['href']
+#             director_name = director.select_one('span[itemprop="name"]')
+#             id_pattern = re.compile(r'(?<=nm)\d+(?=/?)')
+#             person_id = int(id_pattern.search(person_link).group())
+#             movie_data['director_id'] = person_id
+#             movie_data['director_name'] = director_name.string
+#             store_director_data_in_db(movie_data)
+#             #parse Cast's data
+#             cast = soup.select('table.cast_list tr[class!="castlist_label"]')
+#             for actor in get_cast_data(cast):
+#                 store_actor_data_to_db(actor, movie_data)
+#         else:
+#             print("GET url of movie Do Not 200 OK!")
+#     except RequestException:
+#         print("Get Movie URL failed!")
+#         return None
+
+
 def main():
     conn, cursor = mysql_connection.get_conn()
 
     try:
         for movie in get_top250_movies_list():
+            print(movie)
             store_movie_data_to_db(movie, conn, cursor)
     finally:
         mysql_connection.close_conn(conn, cursor)
