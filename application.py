@@ -78,7 +78,7 @@ def store_movie_data_to_db(movie_data, conn, cursor):
         print("This movie ALREADY EXISTED!!!")
 
 
-def get_movie_detail_data(movie_data):
+def get_movie_detail_data(movie_data, conn, cursor):
     url = movie_data['movie_link']
 
     try:
@@ -97,7 +97,7 @@ def get_movie_detail_data(movie_data):
             movie_data['director_id'] = director_id
             movie_data['director_name'] = director_name.string
 
-        #         store_director_data_in_db(movie_data)
+            store_director_data_in_db(movie_data, conn, cursor)
         #         #parse Cast's data
         #         cast = soup.select('table.cast_list tr[class!="castlist_label"]')
         #         for actor in get_cast_data(cast):
@@ -109,14 +109,57 @@ def get_movie_detail_data(movie_data):
         return None
 
 
+def store_director_data_in_db(movie, conn, cursor):
+    sel_sql = "SELECT * FROM directors WHERE id = %d" % (movie['director_id'])
+
+    try:
+        cursor.execute(sel_sql)
+        result = cursor.fetchall()
+    except:
+        print("Failed to fetch data")
+
+    if result.__len__() == 0:
+        sql = "INSERT INTO directors (id, name) VALUES ('%d', '%s')" % (movie['director_id'], movie['director_name'])
+
+        try:
+            cursor.execute(sql)
+            conn.commit()
+            print("Director data ADDED to DB table directors!", movie['director_name'])
+        except:
+            conn.rollback()
+    else:
+        print("This Director ALREADY EXISTED!!")
+
+    sel_sql = "SELECT * FROM direct_movie WHERE director_id = %d AND movie_id = %d" % \
+              (movie['director_id'], movie['movie_id'])
+
+    try:
+        cursor.execute(sel_sql)
+        result = cursor.fetchall()
+    except:
+        print("Failed to fetch data")
+
+    if result.__len__() == 0:
+        sql = "INSERT INTO direct_movie (director_id, movie_id) VALUES ('%d', '%d')" % \
+              (movie['director_id'], movie['movie_id'])
+        try:
+            cursor.execute(sql)
+            conn.commit()
+            print("Director direct movie data ADD to DB table direct_movie!")
+        except:
+            conn.rollback()
+    else:
+        print("This Director direct movie ALREADY EXISTED!!!")
+
+
 def main():
     conn, cursor = mysql_connection.get_conn()
 
     try:
         for movie in get_top250_movies_list():
-            print(movie)
+            # print(movie)
             store_movie_data_to_db(movie, conn, cursor)
-            get_movie_detail_data(movie)
+            get_movie_detail_data(movie, conn, cursor)
     finally:
         mysql_connection.close_conn(conn, cursor)
 
