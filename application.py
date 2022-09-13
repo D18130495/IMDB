@@ -98,10 +98,12 @@ def get_movie_detail_data(movie_data, conn, cursor):
             movie_data['director_name'] = director_name.string
 
             store_director_data_in_db(movie_data, conn, cursor)
-        #         #parse Cast's data
-        #         cast = soup.select('table.cast_list tr[class!="castlist_label"]')
-        #         for actor in get_cast_data(cast):
-        #             store_actor_data_to_db(actor, movie_data)
+
+            actors = soup.select('ul[class="ipc-inline-list ipc-inline-list--show-dividers ipc-inline-list--inline '
+                                 'ipc-metadata-list-item__list-content baseAlt"]')[2]
+
+            for actor in get_cast_data(actors):
+                store_actor_data_to_db(actor, movie_data, conn, cursor)
         else:
             print("GET url of movie Do Not 200 OK!")
     except RequestException:
@@ -119,7 +121,8 @@ def store_director_data_in_db(movie, conn, cursor):
         print("Failed to fetch data")
 
     if result.__len__() == 0:
-        sql = "INSERT INTO directors (id, name) VALUES ('%d', '%s')" % (movie['director_id'], movie['director_name'])
+        sql = "INSERT INTO directors (id, name) VALUES ('%d', '%s')" % (movie['director_id'],
+                                                                        movie['director_name'].replace("'", "‘"))
 
         try:
             cursor.execute(sql)
@@ -152,14 +155,77 @@ def store_director_data_in_db(movie, conn, cursor):
         print("This Director direct movie ALREADY EXISTED!!!")
 
 
+def get_cast_data(actors):
+    for actor in actors:
+        actor_data = actor.select_one('a[class="ipc-metadata-list-item__list-content-item '
+                                      'ipc-metadata-list-item__list-content-item--link"]')
+
+        person_link = "https://www.imdb.com" + actor_data['href']
+
+        actor_id_rule = re.compile(r'(?<=nm)\d+(?=/)')
+        actor_id = int(actor_id_rule.search(person_link).group())
+
+        actor_name = actor_data.get_text().strip()
+
+        yield {
+            'actor_id': actor_id,
+            'actor_name': actor_name
+        }
+
+
+def store_actor_data_to_db(actor, movie, conn, cursor):
+    sel_sql = "SELECT * FROM actors WHERE id =  %d" % (actor['actor_id'])
+
+    try:
+        cursor.execute(sel_sql)
+        result = cursor.fetchall()
+    except:
+        print("Failed to fetch data")
+
+    if result.__len__() == 0:
+        sql = "INSERT INTO actors (id, name) VALUES ('%d', '%s')" % \
+              (actor['actor_id'], actor['actor_name'].replace("'", "‘"))
+
+        try:
+            cursor.execute(sql)
+            conn.commit()
+            print("Actor data ADDED to DB table actors!")
+        except:
+            conn.rollback()
+    else:
+        print("This actor has been saved already")
+
+    sel_sql = "SELECT * FROM actor_movie WHERE actor_id = %d AND movie_id = %d" % \
+              (actor['actor_id'], movie['movie_id'])
+    try:
+        cursor.execute(sel_sql)
+        result = cursor.fetchall()
+    except:
+        print("Failed to fetch data")
+
+    if result.__len__() == 0:
+        sql = "INSERT INTO actor_movie (actor_id, movie_id) VALUES ('%d', '%d')" % \
+              (actor['actor_id'], movie['movie_id'])
+
+        try:
+            cursor.execute(sql)
+            conn.commit()
+            print("Actor in movie data ADDED to DB table cast_in_movie!")
+        except:
+            conn.rollback()
+    else:
+        print("This actor in movie data ALREADY EXISTED")
+
+
 def main():
     conn, cursor = mysql_connection.get_conn()
 
     try:
         for movie in get_top250_movies_list():
-            # print(movie)
+            print("------------------------------------------------")
             store_movie_data_to_db(movie, conn, cursor)
             get_movie_detail_data(movie, conn, cursor)
+            print("------------------------------------------------\n\n\n\n\n")
     finally:
         mysql_connection.close_conn(conn, cursor)
 
