@@ -1,11 +1,10 @@
 import re
 
-import pymysql
 import requests
 from bs4 import BeautifulSoup
 from requests.exceptions import RequestException
 
-import mysql_connection
+from src.mapping import mysql_connection
 
 
 def get_top250_movies_list():
