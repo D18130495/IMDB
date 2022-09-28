@@ -1,8 +1,9 @@
-import time
-
 import pandas as pd
 from math import *
-import numpy as np
+
+import os
+
+starMatrix = {}
 
 
 def merge_data():
@@ -18,18 +19,63 @@ def merge_data():
     data.to_csv('../../ml-latest-small/data.csv', index=False)
 
 
+# put all the data in 2D-array
 def matrix():
     file = open('../../ml-latest-small/data.csv', 'r', encoding='UTF-8')
-    data = {}
 
     for line in file.readlines():
         line = line.strip().split(',')
-        if not line[0] in data.keys():
-            data[line[0]] = {line[3]: line[1]}
+        if not line[0] in starMatrix.keys():
+            starMatrix[line[0]] = {line[3]: line[1]}
         else:
-            data[line[0]][line[3]] = line[1]
+            starMatrix[line[0]][line[3]] = line[1]
+
+
+# find the highest similarity user in the record, and recommend the movie he/she hasn't watched
+def recommend(user_id):
+    similar_user = similar(user_id)[0][0]
+    items = starMatrix[similar_user]
+    recommendations = []
+
+    for item in items.keys():
+        if item not in starMatrix[user_id].keys():
+            recommendations.append((item, items[item]))
+    recommendations.sort(key=lambda val: val[1], reverse=True)
+    return recommendations[:20]
+
+
+# find the similar user
+def similar(user_id):
+    res = []
+
+    for userid in starMatrix.keys():
+        if not userid == user_id:
+            similar_rate = euclidean(user_id, userid)
+            res.append((userid, similar_rate))
+    res.sort(key=lambda val: val[1])
+    return res[:4]
+
+
+# euclidean algorithm use to calculate the distance between two users
+def euclidean(user1, user2):
+    user1_data = starMatrix[user1]
+    user2_data = starMatrix[user2]
+    distance = 0
+
+    for key in user1_data.keys():
+        if key in user2_data.keys():
+            distance += pow(float(user1_data[key]) - float(user2_data[key]), 2)
+
+    return 1 / (1 + sqrt(distance))
 
 
 if __name__ == '__main__':
-    # merge_data()
+    if not os.path.exists('../../ml-latest-small/data.csv'):
+        merge_data()
+
     matrix()
+    Recommendations = recommend("1")
+
+    for video in Recommendations:
+        print(video)
+
